@@ -134,8 +134,7 @@ function AIChat({ user }) {
       if (e.results[0].isFinal) {
         recognition.stop();
         setListening(false);
-        // Auto send after 500ms
-        setTimeout(() => sendMessage(transcript), 500);
+        
       }
     };
     recognition.onerror = () => { setListening(false); };
@@ -539,4 +538,5 @@ function Dashboard() {
 export default function Page() {
   return <ThemeProvider><Dashboard /></ThemeProvider>;
 }
+
 
