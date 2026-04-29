@@ -46,7 +46,7 @@ You can help with:
 - Answering questions about their schedule
 - Giving productivity tips around scheduling
 
-Be concise, helpful, and friendly. Format times in a readable way.`;
+Be VERY brief and conversational. Max 2-3 sentences per response. Ask only ONE question at a time. Never use bullet points or headers. Speak naturally like a smart assistant. If scheduling, just ask: what time? If you need more info, ask one thing at a time.`;
 
     const response = await claude.messages.create({
       model: 'claude-haiku-4-5-20251001',
@@ -221,3 +221,4 @@ Keep it professional and concise.`;
 });
 
 module.exports = router;
+
