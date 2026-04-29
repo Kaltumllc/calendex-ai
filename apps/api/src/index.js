@@ -41,4 +41,5 @@ async function start() {
     console.log(`📊 Health: http://localhost:${PORT}/health`);
   });
 }
-start().catch(console.error);
+start().catch(err => { console.error('STARTUP ERROR:', err.message); console.error(err); process.exit(1); });
+
