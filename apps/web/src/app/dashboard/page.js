@@ -195,7 +195,7 @@ function AIChat({ user }) {
               color: m.role === 'user' ? 'white' : 'var(--text)',
               borderBottomRightRadius: m.role === 'user' ? 4 : 16,
               borderBottomLeftRadius: m.role === 'assistant' ? 4 : 16,
-            }}>{m.text}</div>
+            }}>{m.text.replace(/\*\*(.*?)\*\*/g, `<strong>$1</strong>`).replace(/#{1,3} (.*)/g, `<strong>$1</strong>`).replace(/\n- /g, `<br/>• `).replace(/\n/g, `<br/>`)}</div>
             {m.role === 'assistant' && i > 0 && (
               <button onClick={() => speak(m.text)} title="Read aloud" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-faint)', padding: '4px', flexShrink: 0 }}>ðŸ”Š</button>
             )}
@@ -539,3 +539,4 @@ function Dashboard() {
 export default function Page() {
   return <ThemeProvider><Dashboard /></ThemeProvider>;
 }
+
