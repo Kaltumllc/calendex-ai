@@ -32,7 +32,7 @@ router.post('/assistant', authMiddleware, async (req, res) => {
       [req.user.id]
     );
 
-    const systemPrompt = `You are Calendex AI, an intelligent scheduling assistant for ${context.userName || 'the user'}.
+    const systemPrompt = `You are Kaltum AI, an intelligent scheduling assistant for ${context.userName || 'the user'}.
 You help users manage their calendar, schedule meetings, and optimize their time.
 
 The user's upcoming meetings (next 5):
