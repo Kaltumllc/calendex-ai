@@ -19,7 +19,12 @@ function Sidebar({ tab, setTab, user, onLogout }) {
     <div style={{ width: 240, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 40 }}>
       <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem' }}>📅</div>
+          <svg width="30" height="30" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="18" stroke="var(--accent)" strokeWidth="2.5" strokeDasharray="85 28" strokeLinecap="round"/>
+            <circle cx="20" cy="20" r="11" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="50 20" strokeLinecap="round"/>
+            <circle cx="20" cy="20" r="3.5" fill="var(--accent)"/>
+            <circle cx="32" cy="14" r="2.5" fill="var(--cream, #e8c9a0)"/>
+          </svg>
           <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text)' }}>Calendex <em style={{ color: 'var(--accent)' }}>AI</em></span>
         </div>
       </div>
@@ -75,50 +80,165 @@ function StatCard({ label, value, icon, color }) {
 
 function AIChat({ user }) {
   const [messages, setMessages] = useState([
-    { role: 'assistant', text: `Hi ${user?.name?.split(' ')[0] || 'there'}! I'm Kaltum AI, your intelligent scheduling assistant. Ask me about your schedule, or try "optimize my week".` }
+    { role: 'assistant', text: `Hi ${user?.name?.split(' ')[0] || 'there'}! I'm Kaltum AI. Ask me about your schedule or click the mic to speak.` }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const bottomRef = useRef(null);
+  const recognitionRef = useRef(null);
+
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  async function send() {
-    if (!input.trim() || loading) return;
-    const msg = input.trim(); setInput('');
+  // Text to speech
+  function speak(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    // Pick a good voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => v.name.includes('Samantha') || v.name.includes('Google US English') || v.name.includes('Microsoft Zira'));
+    if (preferred) utterance.voice = preferred;
+    utterance.onstart = () => setSpeaking(true);
+    utterance.onend = () => setSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  // Voice input
+  function toggleListening() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Voice input is not supported in this browser. Please use Chrome.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => setListening(true);
+    recognition.onresult = (e) => {
+      const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+      setInput(transcript);
+      if (e.results[0].isFinal) {
+        recognition.stop();
+        setListening(false);
+        // Auto send after 500ms
+        setTimeout(() => sendMessage(transcript), 500);
+      }
+    };
+    recognition.onerror = () => { setListening(false); };
+    recognition.onend = () => { setListening(false); };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  }
+
+  async function sendMessage(text) {
+    const msg = (text || input).trim();
+    if (!msg || loading) return;
+    setInput('');
     setMessages(p => [...p, { role: 'user', text: msg }]);
     setLoading(true);
+    window.speechSynthesis?.cancel();
     try {
       const res = await api.aiChat({ message: msg, context: { userName: user?.name } });
       setMessages(p => [...p, { role: 'assistant', text: res.reply }]);
-    } catch { setMessages(p => [...p, { role: 'assistant', text: 'Something went wrong. Try again.' }]); }
-    finally { setLoading(false); }
+      // Speak the response
+      setTimeout(() => speak(res.reply), 100);
+    } catch {
+      setMessages(p => [...p, { role: 'assistant', text: 'Something went wrong. Please try again.' }]);
+    } finally { setLoading(false); }
+  }
+
+  function stopSpeaking() {
+    window.speechSynthesis?.cancel();
+    setSpeaking(false);
   }
 
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', display: 'flex', flexDirection: 'column', height: 480 }}>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', display: 'flex', flexDirection: 'column', height: 520 }}>
+      {/* Header */}
       <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)' }} />
-        <span style={{ fontWeight: 600, fontSize: '0.9375rem', color: 'var(--text)' }}>AI Scheduling Assistant</span>
-        <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-faint)' }}>Kaltum AI</span>
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: listening ? '#ff4444' : speaking ? 'var(--accent)' : 'var(--success)', animation: (listening || speaking) ? 'pulse 1s infinite' : 'none' }} />
+        <span style={{ fontWeight: 600, fontSize: '0.9375rem', color: 'var(--text)' }}>
+          Kaltum AI {listening ? '— Listening...' : speaking ? '— Speaking...' : ''}
+        </span>
+        {speaking && (
+          <button onClick={stopSpeaking} style={{ marginLeft: 'auto', padding: '4px 12px', borderRadius: 'var(--radius-full)', border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-muted)', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+            Stop speaking
+          </button>
+        )}
       </div>
+
+      {/* Messages */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {messages.map((m, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', gap: 10, alignItems: 'flex-end' }}>
-            {m.role === 'assistant' && <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', flexShrink: 0, color: 'white' }}>✦</div>}
-            <div style={{ maxWidth: '75%', padding: '10px 16px', borderRadius: 16, fontSize: '0.9rem', lineHeight: 1.65, background: m.role === 'user' ? 'var(--accent)' : 'var(--surface-2)', color: m.role === 'user' ? 'white' : 'var(--text)', borderBottomRightRadius: m.role === 'user' ? 4 : 16, borderBottomLeftRadius: m.role === 'assistant' ? 4 : 16 }}>{m.text}</div>
+            {m.role === 'assistant' && (
+              <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', flexShrink: 0, color: 'white' }}>✦</div>
+            )}
+            <div style={{
+              maxWidth: '75%', padding: '10px 16px', borderRadius: 16, fontSize: '0.9rem', lineHeight: 1.65,
+              background: m.role === 'user' ? 'var(--accent)' : 'var(--surface-2)',
+              color: m.role === 'user' ? 'white' : 'var(--text)',
+              borderBottomRightRadius: m.role === 'user' ? 4 : 16,
+              borderBottomLeftRadius: m.role === 'assistant' ? 4 : 16,
+            }}>{m.text}</div>
+            {m.role === 'assistant' && i > 0 && (
+              <button onClick={() => speak(m.text)} title="Read aloud" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-faint)', padding: '4px', flexShrink: 0 }}>🔊</button>
+            )}
           </div>
         ))}
-        {loading && <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}><div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', color: 'white' }}>✦</div><div style={{ padding: '12px 16px', borderRadius: 16, borderBottomLeftRadius: 4, background: 'var(--surface-2)', color: 'var(--text-muted)', fontSize: '0.875rem' }}>Thinking...</div></div>}
+        {loading && (
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+            <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', color: 'white' }}>✦</div>
+            <div style={{ padding: '12px 16px', borderRadius: 16, borderBottomLeftRadius: 4, background: 'var(--surface-2)', color: 'var(--text-muted)', fontSize: '0.875rem' }}>Thinking...</div>
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
-      <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10 }}>
+
+      {/* Input */}
+      <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, alignItems: 'center' }}>
+        {/* Mic button */}
+        <button onClick={toggleListening} style={{
+          width: 42, height: 42, borderRadius: '50%', border: 'none', flexShrink: 0,
+          background: listening ? '#ff4444' : 'var(--accent-soft)',
+          color: listening ? 'white' : 'var(--accent)',
+          cursor: 'pointer', fontSize: '1.1rem', transition: 'all 0.2s',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: listening ? '0 0 0 4px rgba(255,68,68,0.2)' : 'none',
+          animation: listening ? 'pulse 1s infinite' : 'none',
+        }}>
+          🎤
+        </button>
+
         <input style={{ flex: 1, padding: '10px 14px', background: 'var(--surface-2)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-full)', color: 'var(--text)', fontSize: '0.9rem', outline: 'none', fontFamily: 'var(--font-body)', transition: 'border-color 0.2s' }}
-          placeholder="Ask about your schedule..." value={input}
-          onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()}
+          placeholder={listening ? 'Listening...' : 'Ask Kaltum AI or click 🎤 to speak...'}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && sendMessage()}
           onFocus={e => e.target.style.borderColor = 'var(--accent)'}
           onBlur={e => e.target.style.borderColor = 'var(--border)'}
         />
-        <button onClick={send} disabled={loading || !input.trim()} style={{ padding: '10px 20px', borderRadius: 'var(--radius-full)', border: 'none', background: 'var(--accent)', color: 'white', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', opacity: loading || !input.trim() ? 0.5 : 1 }}>Send</button>
+        <button onClick={() => sendMessage()} disabled={loading || !input.trim()} style={{
+          padding: '10px 20px', borderRadius: 'var(--radius-full)', border: 'none',
+          background: 'var(--accent)', color: 'white', fontSize: '0.875rem', fontWeight: 600,
+          cursor: 'pointer', fontFamily: 'var(--font-body)',
+          opacity: loading || !input.trim() ? 0.5 : 1, transition: 'all 0.2s',
+        }}>Send</button>
       </div>
     </div>
   );
@@ -144,67 +264,56 @@ function CreateLinkModal({ onClose, onCreated }) {
     finally { setLoading(false); }
   }
 
-  const inputStyle = { width: '100%', padding: '10px 14px', background: 'var(--surface-2)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '0.9375rem', outline: 'none', fontFamily: 'var(--font-body)', transition: 'border-color 0.2s, box-shadow 0.2s' };
-  const labelStyle = { display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 };
-  const onFocus = e => { e.target.style.borderColor = 'var(--accent)'; e.target.style.boxShadow = '0 0 0 3px var(--accent-soft)'; };
-  const onBlur = e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; };
+  const inputStyle = { width: '100%', padding: '10px 14px', background: 'var(--surface-2)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '0.9375rem', outline: 'none', fontFamily: 'var(--font-body)', transition: 'border-color 0.2s' };
+  const onFocus = e => { e.target.style.borderColor = 'var(--accent)'; };
+  const onBlur = e => { e.target.style.borderColor = 'var(--border)'; };
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
       <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', padding: 36, width: '100%', maxWidth: 480, boxShadow: 'var(--shadow-lg)' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: 'var(--text)' }}>New Booking Link</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--text-muted)' }}>×</button>
         </div>
-
-        {error && <div style={{ background: 'var(--danger-soft)', border: '1px solid rgba(222,53,11,0.2)', borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginBottom: 20, color: 'var(--danger)', fontSize: '0.875rem' }}>⚠️ {error}</div>}
-
+        {error && <div style={{ background: 'var(--danger-soft)', borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginBottom: 20, color: 'var(--danger)', fontSize: '0.875rem' }}>⚠️ {error}</div>}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div>
-            <label style={labelStyle}>Meeting title</label>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Meeting title</label>
             <input style={inputStyle} type="text" placeholder="e.g. 30 Min Consultation" value={form.title}
               onChange={e => setForm(p => ({ ...p, title: e.target.value, slug: autoSlug(e.target.value) }))}
               required onFocus={onFocus} onBlur={onBlur} />
           </div>
           <div>
-            <label style={labelStyle}>Booking link slug</label>
-            <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface-2)', overflow: 'hidden' }}>
-              <span style={{ padding: '10px 12px', color: 'var(--text-faint)', fontSize: '0.875rem', borderRight: '1px solid var(--border)', whiteSpace: 'nowrap' }}>calendexai.com/book/</span>
-              <input style={{ ...inputStyle, border: 'none', borderRadius: 0, background: 'transparent' }} type="text" placeholder="your-link" value={form.slug}
-                onChange={e => setForm(p => ({ ...p, slug: e.target.value }))} required onFocus={onFocus} onBlur={onBlur} />
-            </div>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Slug</label>
+            <input style={inputStyle} type="text" placeholder="your-link" value={form.slug}
+              onChange={e => setForm(p => ({ ...p, slug: e.target.value }))} required onFocus={onFocus} onBlur={onBlur} />
           </div>
           <div>
-            <label style={labelStyle}>Duration</label>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Duration</label>
             <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.duration_minutes}
               onChange={e => setForm(p => ({ ...p, duration_minutes: Number(e.target.value) }))}>
               {[15, 20, 30, 45, 60, 90].map(d => <option key={d} value={d}>{d} minutes</option>)}
             </select>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={labelStyle}>Buffer before</label>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Buffer before</label>
               <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.buffer_before}
                 onChange={e => setForm(p => ({ ...p, buffer_before: Number(e.target.value) }))}>
                 {[0, 5, 10, 15].map(d => <option key={d} value={d}>{d} min</option>)}
               </select>
             </div>
-            <div>
-              <label style={labelStyle}>Buffer after</label>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Buffer after</label>
               <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.buffer_after}
                 onChange={e => setForm(p => ({ ...p, buffer_after: Number(e.target.value) }))}>
                 {[0, 5, 10, 15].map(d => <option key={d} value={d}>{d} min</option>)}
               </select>
             </div>
           </div>
-          <div>
-            <label style={labelStyle}>Description <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}>(optional)</span></label>
-            <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 72 }} placeholder="What's this meeting about?" value={form.description}
-              onChange={e => setForm(p => ({ ...p, description: e.target.value }))} onFocus={onFocus} onBlur={onBlur} />
-          </div>
           <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
             <button type="button" onClick={onClose} style={{ flex: 1, padding: '11px', borderRadius: 'var(--radius-full)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancel</button>
-            <button type="submit" disabled={loading} style={{ flex: 2, padding: '11px', borderRadius: 'var(--radius-full)', border: 'none', background: 'var(--accent)', color: 'white', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', opacity: loading ? 0.7 : 1, boxShadow: '0 4px 14px var(--accent-glow)' }}>
+            <button type="submit" disabled={loading} style={{ flex: 2, padding: '11px', borderRadius: 'var(--radius-full)', border: 'none', background: 'var(--accent)', color: 'white', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', opacity: loading ? 0.7 : 1 }}>
               {loading ? 'Creating...' : 'Create Link'}
             </button>
           </div>
@@ -214,7 +323,7 @@ function CreateLinkModal({ onClose, onCreated }) {
   );
 }
 
-function AvailabilityTab({ user }) {
+function AvailabilityTab() {
   const [availability, setAvailability] = useState(
     DAYS.map((_, i) => ({ day_of_week: i, enabled: i >= 1 && i <= 5, start_time: '09:00', end_time: '17:00' }))
   );
@@ -224,8 +333,7 @@ function AvailabilityTab({ user }) {
   async function handleSave() {
     setSaving(true);
     try {
-      const active = availability.filter(a => a.enabled);
-      await api.setAvailability({ availability: active });
+      await api.setAvailability({ availability: availability.filter(a => a.enabled) });
       setSaved(true); setTimeout(() => setSaved(false), 2000);
     } catch (e) { alert('Failed to save: ' + e.message); }
     finally { setSaving(false); }
@@ -309,10 +417,10 @@ function Dashboard() {
               <p style={{ color: 'var(--text-muted)' }}>Here's what's happening with your schedule.</p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
-              <StatCard label="Upcoming meetings" value={upcoming.length} icon="📅" color="#0066ff" />
+              <StatCard label="Upcoming meetings" value={upcoming.length} icon="📅" color="#8b0000" />
               <StatCard label="Total bookings" value={bookings.length} icon="📊" />
-              <StatCard label="Completed" value={completed.length} icon="✅" color="#00875a" />
-              <StatCard label="Booking links" value={links.length} icon="🔗" color="#ff8b00" />
+              <StatCard label="Completed" value={completed.length} icon="✅" color="#1a6b3c" />
+              <StatCard label="Booking links" value={links.length} icon="🔗" color="#8b4e00" />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: bookings.length > 0 ? '1fr 1fr' : '1fr', gap: 20 }}>
               {bookings.length > 0 && (
@@ -358,7 +466,7 @@ function Dashboard() {
                         <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{b.guest_email} · {new Date(b.start_time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                       </div>
                     </div>
-                    <span style={{ padding: '4px 12px', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 600, background: b.status === 'confirmed' ? 'var(--success-soft)' : b.status === 'cancelled' ? 'var(--danger-soft)' : 'var(--surface-2)', color: b.status === 'confirmed' ? 'var(--success)' : b.status === 'cancelled' ? 'var(--danger)' : 'var(--text-muted)' }}>{b.status}</span>
+                    <span style={{ padding: '4px 12px', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 600, background: b.status === 'confirmed' ? 'var(--success-soft)' : 'var(--surface-2)', color: b.status === 'confirmed' ? 'var(--success)' : 'var(--text-muted)' }}>{b.status}</span>
                   </div>
                 ))}
               </div>
@@ -373,9 +481,7 @@ function Dashboard() {
                 <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', color: 'var(--text)', marginBottom: 4 }}>Booking Links</h1>
                 <p style={{ color: 'var(--text-muted)' }}>Share these links to accept meetings.</p>
               </div>
-              <button onClick={() => setShowCreateLink(true)} style={{ padding: '10px 20px', borderRadius: 'var(--radius-full)', border: 'none', background: 'var(--accent)', color: 'white', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', boxShadow: '0 2px 8px var(--accent-glow)' }}>
-                + New Link
-              </button>
+              <button onClick={() => setShowCreateLink(true)} style={{ padding: '10px 20px', borderRadius: 'var(--radius-full)', border: 'none', background: 'var(--accent)', color: 'white', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', boxShadow: '0 2px 8px var(--accent-glow)' }}>+ New Link</button>
             </div>
             {links.length === 0 ? (
               <div style={{ background: 'var(--surface)', border: '1.5px dashed var(--border)', borderRadius: 'var(--radius)', padding: '60px 40px', textAlign: 'center' }}>
@@ -411,12 +517,16 @@ function Dashboard() {
           </div>
         )}
 
-        {tab === 'availability' && <AvailabilityTab user={user} />}
+        {tab === 'availability' && <AvailabilityTab />}
+
         {tab === 'ai' && (
           <div>
             <div style={{ marginBottom: 28 }}>
-              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', color: 'var(--text)', marginBottom: 4 }}>AI Assistant</h1>
-              <p style={{ color: 'var(--text-muted)' }}>Your intelligent scheduling companion, powered by Kaltum AI.</p>
+              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', color: 'var(--text)', marginBottom: 4 }}>Kaltum AI Assistant</h1>
+              <p style={{ color: 'var(--text-muted)' }}>Speak or type — your intelligent scheduling companion.</p>
+            </div>
+            <div style={{ marginBottom: 16, padding: '12px 16px', background: 'var(--accent-soft)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+              🎤 Click the microphone to speak · 🔊 AI responds with voice · Works best in Chrome
             </div>
             <AIChat user={user} />
           </div>
