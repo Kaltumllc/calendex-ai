@@ -34,6 +34,7 @@
   --radius-sm: 8px;
   --radius-lg: 20px;
   --radius-full: 9999px;
+  --sidebar-width: 240px;
 }
 
 [data-theme="dark"] {
@@ -49,14 +50,12 @@
   --accent-soft: rgba(196,30,30,0.15);
   --accent-glow: rgba(196,30,30,0.3);
   --cream: #c8a882;
-  --cream-soft: rgba(200,168,130,0.15);
   --text: #f5ede0;
   --text-2: #d4c0a8;
   --text-muted: #8a6a58;
   --text-faint: #5a3828;
   --success: #36b37e;
   --success-soft: rgba(54,179,126,0.12);
-  --warning: #d4a843;
   --danger: #e03030;
   --danger-soft: rgba(224,48,48,0.12);
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
@@ -76,7 +75,7 @@ body {
   transition: background 0.3s ease, color 0.3s ease;
 }
 ::selection { background: var(--accent-soft); color: var(--accent); }
-::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 10px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
@@ -85,6 +84,7 @@ body {
 @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
 @keyframes spin { to { transform:rotate(360deg); } }
 @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+@keyframes slideIn { from { transform:translateX(-100%); } to { transform:translateX(0); } }
 
 .animate-fade-up { animation: fadeUp 0.5s cubic-bezier(0.4,0,0.2,1) forwards; }
 .animate-fade-in { animation: fadeIn 0.4s ease forwards; }
@@ -93,3 +93,8 @@ body {
 .delay-2 { animation-delay:0.2s; opacity:0; }
 .delay-3 { animation-delay:0.3s; opacity:0; }
 .delay-4 { animation-delay:0.4s; opacity:0; }
+
+/* ── Mobile responsive ── */
+@media (max-width: 768px) {
+  :root { font-size: 14px; }
+}
