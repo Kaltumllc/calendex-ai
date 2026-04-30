@@ -58,7 +58,7 @@ function RegisterPage() {
           {error && <div style={{ background: 'var(--danger-soft)', border: '1px solid rgba(139,0,0,0.2)', borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginBottom: 24, color: 'var(--danger)', fontSize: '0.875rem' }}>⚠️ {error}</div>}
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div><label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Full name</label><input style={inputStyle} type="text" placeholder="Mustapha Ibrahim" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required onFocus={onFocus} onBlur={onBlur} /></div>
+            <div><label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Full name</label><input style={inputStyle} type="text" placeholder="Jane Smith" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required onFocus={onFocus} onBlur={onBlur} /></div>
             <div><label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Work email</label><input style={inputStyle} type="email" placeholder="you@company.com" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} required onFocus={onFocus} onBlur={onBlur} /></div>
             <div><label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Password <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}>(min. 8 chars)</span></label><input style={inputStyle} type="password" placeholder="Create a strong password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required onFocus={onFocus} onBlur={onBlur} /></div>
             <button type="submit" disabled={loading} style={{ width: '100%', padding: '13px', borderRadius: 'var(--radius-full)', border: 'none', background: loading ? 'var(--surface-3)' : 'var(--accent)', color: 'white', fontSize: '1rem', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.2s', boxShadow: loading ? 'none' : '0 4px 14px var(--accent-glow)' }}>
@@ -76,3 +76,4 @@ function RegisterPage() {
 }
 
 export default function Page() { return <ThemeProvider><RegisterPage /></ThemeProvider>; }
+
